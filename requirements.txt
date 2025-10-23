@@ -1,0 +1,4 @@
+webrtcvad==2.0.10
+edge-tts==6.1.12
+requests==2.32.3
+numpy==2.1.2
