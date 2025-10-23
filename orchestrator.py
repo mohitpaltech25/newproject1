@@ -2,6 +2,7 @@
 import threading
 import queue
 import time
+import os
 from assistant.audio.virtualmic_setup import VirtualMic
 
 # from assistant.audio.audio_recorder import AudioRecorderThread
@@ -15,10 +16,22 @@ from assistant.memory.transcript_manager import TranscriptManager
 from assistant.memory.context_manager import ContextManager
 
 from utils.logger_config import logger
+from utils.profiler import start_profiling, stop_profiling
 
 
 def run_orchestrator(bot = None, graph = None , next_meeting=None):
     print("[orchestrator] started ")
+    # Start global profiler early if enabled
+    if os.getenv("MIRA_PROFILING", "0") == "1":
+        try:
+            start_profiling(
+                workspace_root=os.getenv("WORKSPACE_ROOT", "/workspace"),
+                report_path=os.getenv("MIRA_PROFILING_REPORT", "/workspace/logs/profiling_report.txt"),
+                include_stdlib=False,
+            )
+            logger.info("[Orchestrator] Profiling enabled; report will be written at exit.")
+        except Exception as e:
+            logger.warning(f"[Orchestrator] Failed to start profiler: {e}")
     if not VirtualMic.verify_virtual_mic():
         print("[orchestartor] Virtual Mic not configured properly. Exiting.")
         return
@@ -100,6 +113,13 @@ def run_orchestrator(bot = None, graph = None , next_meeting=None):
     # Save final transcript json
     transcript_manager.save_json()
     bot.leave()
+    # Stop profiler and flush report if enabled
+    if os.getenv("MIRA_PROFILING", "0") == "1":
+        try:
+            stop_profiling(write_report=True)
+            logger.info("[Orchestrator] Profiling report written.")
+        except Exception as e:
+            logger.warning(f"[Orchestrator] Failed to stop profiler: {e}")
 
 if __name__ == "__main__":
     run_orchestrator()
