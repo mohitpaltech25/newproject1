@@ -7,6 +7,7 @@ import edge_tts
 from config.config import Config
 from utils.logger_config import logger
 from state.state import State
+from utils.profiling import profile
 
 class TTSWorkerThread(threading.Thread):
     def __init__(self, tts_queue):
@@ -16,11 +17,13 @@ class TTSWorkerThread(threading.Thread):
         self.running.set()
         self.loop = asyncio.new_event_loop()
 
+    @profile
     def run(self):
         asyncio.set_event_loop(self.loop)
         logger.info("[TTSWorker] Thread started.")
         self.loop.run_until_complete(self._process_tts())
 
+    @profile
     async def _process_tts(self):
         while self.running.is_set():
             try:
@@ -55,6 +58,7 @@ class TTSWorkerThread(threading.Thread):
             except Exception as e:
                 logger.exception(f"[TTSWorker] Error: {e}")
 
+    @profile
     async def _speak_sentence(self, sentence: str) -> bool:
         if not sentence or State.interrupted:
             return False
@@ -86,6 +90,7 @@ class TTSWorkerThread(threading.Thread):
                 if os.path.exists(f):
                     os.remove(f)
 
+    @profile
     async def _play_audio(self, wav_path: str) -> bool:
         try:
             # Resolve sink id for Virtual-Sink
@@ -112,6 +117,7 @@ class TTSWorkerThread(threading.Thread):
         finally:
             pass
 
+    @profile
     def stop(self):
         logger.info("[TTSWorker] Stopping thread...")
         self.running.clear()

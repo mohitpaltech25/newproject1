@@ -11,6 +11,7 @@ from state.state import State
 from assistant.llm_client.generate_llm_response import generate_llm_response  # noqa: F401
 from assistant.llm_client.response_handler import ResponseHandler  # noqa: F401
 from assistant.actions import exit_handler, send_notes, introduction_handler, schedule_follow_up, general_query_handler
+from utils.profiling import profile
 
 
 class IntentHandlerThread(threading.Thread):
@@ -26,11 +27,13 @@ class IntentHandlerThread(threading.Thread):
         self.graph = graph
         self.next_meeting = next_meeting
 
+    @profile
     def run(self):
         asyncio.set_event_loop(self.loop)
         logger.info("[IntentHandler] Thread started.")
         self.loop.run_until_complete(self._main_loop())
 
+    @profile
     async def _main_loop(self):
         while self.running.is_set():
             try:
@@ -78,6 +81,7 @@ class IntentHandlerThread(threading.Thread):
             except Exception as e:
                 logger.exception(f"[IntentHandler] Error: {e}")
 
+    @profile
     def stop(self):
         logger.info("[IntentHandler] Stopping thread...")
         self.running.clear()

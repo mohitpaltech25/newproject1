@@ -14,6 +14,7 @@ from config.intent_and_sentence_config import (
     SKIP_CONFIRMATIONS_PHRASES,
     ASSISTANT_SENTENCES,
 )
+from utils.profiling import profile
 
 class WakeWordListenerThread(threading.Thread):
     def __init__(self, stt_queue, intent_queue, tts_queue, transcript_manager, next_meeting, graph, wake_word="MIRA", segment_wait_time=5):
@@ -34,6 +35,7 @@ class WakeWordListenerThread(threading.Thread):
         self.next_meeting = next_meeting
         self.graph = graph
 
+    @profile
     def run(self):
         logger.info("[WakeWord] Listener started.")
         while self.running.is_set():
@@ -113,12 +115,14 @@ class WakeWordListenerThread(threading.Thread):
             except queue.Empty:
                 continue
 
+    @profile
     def contains_wake_word(self, text: str) -> bool:
         for variant in self.wake_word_variants:
             if re.search(rf"\b{re.escape(variant)}\b", text):
                 return True
         return "hey mira" in text
 
+    @profile
     def detect_confirmation(self, text: str) -> int:
         text_lower = text.lower()
         if text_lower in [phrase.lower() for phrase in SKIP_CONFIRMATIONS_PHRASES]:
@@ -128,6 +132,7 @@ class WakeWordListenerThread(threading.Thread):
         else:
             return 0
 
+    @profile
     def process_wake_phrase(self, before_segments, after_segments):
         combined = " ".join(before_segments + after_segments).lower()
         intent = self.match_intent(combined)
@@ -138,6 +143,7 @@ class WakeWordListenerThread(threading.Thread):
             "timestamp": time.time(),
         })
 
+    @profile
     def match_intent(self, phrase: str) -> str:
         for intent, patterns in INTENT_PATTERNS.items():
             for pattern in patterns:
@@ -145,6 +151,7 @@ class WakeWordListenerThread(threading.Thread):
                     return intent
         return "general_query"
 
+    @profile
     def ask_followup_after_email(self):
         sentence = ASSISTANT_SENTENCES["ask_follow_up"]
         if not State.follow_up_mentioned:
@@ -157,6 +164,7 @@ class WakeWordListenerThread(threading.Thread):
             self.tts_queue.put({"sentence": sentence, "post_action": lambda: send_summary_after_speaking(transcript_manager=self.transcript_manager, next_meeting=self.next_meeting, graph=self.graph)})
             State.follow_up_mentioned = False
 
+    @profile
     def stop(self):
         logger.info("[WakeWord] Stopping...")
         self.running.clear()

@@ -8,6 +8,7 @@ from utils.logger_config import logger
 import numpy as np
 import wave
 import webrtcvad
+from utils.profiling import profile
 
 project_dir = os.path.dirname(os.path.abspath(__file__))
 output_dir = os.path.join(project_dir, "..", "..", "audio_segments")
@@ -33,6 +34,7 @@ class VADProcessor:
         self.frame_length = int(sample_rate * frame_duration_ms / 1000)
         self.bytes_per_frame = self.frame_length * 2  # 16-bit audio = 2 bytes per sample
 
+    @profile
     def frame_generator(self, audio_data: bytes | np.ndarray, sample_rate: int):
         frame_duration = self.frame_duration_ms / 1000.0
         frames: list[Frame] = []
@@ -52,6 +54,7 @@ class VADProcessor:
 
         return frames
 
+    @profile
     def is_speech(self, frame_bytes: bytes, sample_rate: int) -> bool:
         try:
             expected_frame_size = int(sample_rate * self.frame_duration_ms / 1000) * 2
@@ -101,6 +104,7 @@ class HybridChunker:
         self.last_speech_time: float | None = None
         self.in_speech_segment: bool = False
 
+    @profile
     def should_end_chunk(self, current_time: float) -> bool:
         if not self.chunk_start_time:
             return False
@@ -118,6 +122,7 @@ class HybridChunker:
 
         return False
 
+    @profile
     def add_frame(self, frame: Frame, is_speech: bool):
         current_time = time.time()
         if not self.chunk_start_time:
@@ -132,6 +137,7 @@ class HybridChunker:
             return self._finalize_chunk()
         return None
 
+    @profile
     def _finalize_chunk(self):
         if not self.current_chunk_frames:
             return None
@@ -150,12 +156,14 @@ class HybridChunker:
 
         return chunk_data
 
+    @profile
     def flush(self):
         if self.current_chunk_frames:
             return self._finalize_chunk()
         return None
 
 
+@profile
 def drain_stderr(pipe):
     try:
         with pipe:
@@ -201,6 +209,7 @@ class AudioRecorderThread(threading.Thread):
 
         os.makedirs(self.output_dir, exist_ok=True)
 
+    @profile
     def _save_audio_chunk(self, audio_data: bytes, timestamp: int | None = None):
         if timestamp is None:
             timestamp = int(time.time() * 1000)
@@ -223,6 +232,7 @@ class AudioRecorderThread(threading.Thread):
         except Exception as e:
             logger.error(f"[Recorder] Error saving audio chunk: {e}")
 
+    @profile
     def _run_with_vad(self):
         logger.info("[Recorder] Started VAD-enabled recording")
         cmd = [
@@ -301,6 +311,7 @@ class AudioRecorderThread(threading.Thread):
                         combined_audio.extend(frame.bytes)
                     self._save_audio_chunk(bytes(combined_audio))
 
+    @profile
     def _run_without_vad(self):
         logger.info("[Recorder] Started traditional time-based recording")
         while self.running.is_set():
@@ -345,6 +356,7 @@ class AudioRecorderThread(threading.Thread):
             except Exception as e:
                 logger.error(f"[Recorder] Unexpected error: {e}")
 
+    @profile
     def run(self):
         logger.info(f"[Recorder] Started recording thread (VAD: {self.use_vad}, Hybrid: {self.use_hybrid_chunking})")
         if self.use_vad:
@@ -352,10 +364,12 @@ class AudioRecorderThread(threading.Thread):
         else:
             self._run_without_vad()
 
+    @profile
     def stop(self):
         logger.info("[Recorder] Stopping...")
         self.running.clear()
 
+    @profile
     def get_audio_segment(self, timeout: float = 1.0):
         try:
             return self.audio_queue.get(timeout=timeout)

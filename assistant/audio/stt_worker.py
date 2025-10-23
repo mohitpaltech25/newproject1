@@ -6,6 +6,7 @@ import os
 from concurrent.futures import ThreadPoolExecutor
 from utils.logger_config import logger
 from config.config import Config
+from utils.profiling import profile
 
 class STTWorkerThread(threading.Thread):
     def __init__(self, audio_queue, stt_queue, transcript_queue, name="STTWorker", max_workers=3):
@@ -17,6 +18,7 @@ class STTWorkerThread(threading.Thread):
         self.running.set()
         self.executor = ThreadPoolExecutor(max_workers=max_workers)
 
+    @profile
     def run(self):
         logger.info("[STT] STT worker thread started.")
         while self.running.is_set():
@@ -30,6 +32,7 @@ class STTWorkerThread(threading.Thread):
             except Exception as e:
                 logger.exception(f"[STT] Unexpected error: {e}")
 
+    @profile
     def handle_file(self, audio_file: str):
         start_time = time.time()
         text = self.transcribe_audio(audio_file)
@@ -57,6 +60,7 @@ class STTWorkerThread(threading.Thread):
         except Exception as e:
             logger.warning(f"[STT] Could not remove {audio_file}: {e}")
 
+    @profile
     def transcribe_audio(self, file_path: str) -> str:
         for attempt in range(3):
             try:
@@ -75,6 +79,7 @@ class STTWorkerThread(threading.Thread):
                 logger.exception(f"[STT] Transcription failed for {file_path}: {e}")
         return ""
 
+    @profile
     def stop(self):
         logger.info("[STT] Stopping...")
         self.running.clear()
